@@ -2,57 +2,58 @@ import React, { useRef, useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { addCustomEmoji, removeCustomEmoji, makeCommentId } from '../lib/dataModel.js'
 import { resizeStickerToDataUrl } from '../lib/image.js'
+
 export default function CommentForm({ onSubmit }) {
   const auth = useAuth()
   const [text, setText] = useState('')
-  const [selectedEmoji, setSelectedEmoji] = useState(null) // { id, name, image }
+  const [selectedEmoji, setSelectedEmoji] = useState(null)
   const [showPicker, setShowPicker] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  // 새 이모티콘 등록 상태
+
   const [isAddingNew, setIsAddingNew] = useState(false)
   const [newEmojiFile, setNewEmojiFile] = useState(null)
   const [newEmojiPreview, setNewEmojiPreview] = useState(null)
   const [newEmojiName, setNewEmojiName] = useState('')
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+
   const wrapRef = useRef(null)
   const fileInputRef = useRef(null)
-  // 저장소에 등록된 통합 이모티콘 목록
+
   const customEmojis = auth.config?.customEmojis || []
-  // 검색어에 따른 필터링
+
   const filteredEmojis = customEmojis.filter((e) =>
     (e.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase())
   )
-  // 외부 클릭 시 이모티콘 팝오버 닫기
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
         setShowPicker(false)
         setIsAddingNew(false)
-        setSearchQuery('')
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
   function handlePickFile(e) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setNewEmojiFile(f)
-    setNewEmojiPreview(URL.createObjectURL(f))
-    if (!newEmojiName.trim()) {
-      const baseName = f.name.split('.')[0].replace(/[^a-zA-Z0-9_가-힣-]/g, '')
-      setNewEmojiName(baseName || '이모티콘')
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewEmojiFile(file)
+    setNewEmojiPreview(URL.createObjectURL(file))
+    if (!newEmojiName) {
+      const baseName = file.name.replace(/\.[^/.]+$/, '').slice(0, 10)
+      setNewEmojiName(baseName)
     }
   }
-  async function handleCreateEmoji(e) {
-    e.preventDefault()
+
+  async function handleCreateEmoji() {
     if (!newEmojiFile) return
     setUploading(true)
     try {
-      // 130x130 선명하고 가벼운 스티커로 변환하여 저장
       const dataUrl = await resizeStickerToDataUrl(newEmojiFile, 130)
       const emoji = {
         id: makeCommentId(),
@@ -62,7 +63,7 @@ export default function CommentForm({ onSubmit }) {
       const updated = await addCustomEmoji(auth.client, auth.config, auth.configSha, emoji)
       auth.setConfig(updated)
       await auth.refreshConfig()
-      // 방금 만든 이모티콘을 즉시 댓글 스티커로 선택
+
       setSelectedEmoji(emoji)
       setIsAddingNew(false)
       setShowPicker(false)
@@ -75,25 +76,15 @@ export default function CommentForm({ onSubmit }) {
       setUploading(false)
     }
   }
-  async function handleDeleteEmoji(e, emojiId, emojiName) {
-    e.stopPropagation()
-    if (deletingId) return
-    if (!window.confirm(`':${emojiName}:' 이모티콘을 삭제할까요? 모두의 이모티콘 목록에서 사라집니다.`)) {
-      return
-    }
+
+  async function handleDeleteEmoji(ev, emojiId, emojiName) {
+    ev.stopPropagation()
+    if (!window.confirm(`':${emojiName}:' 이모티콘을 삭제할까요?`)) return
     setDeletingId(emojiId)
     try {
-      if (typeof removeCustomEmoji === 'function') {
-        const updated = await removeCustomEmoji(auth.client, auth.config, auth.configSha, emojiId)
-        auth.setConfig(updated)
-        await auth.refreshConfig()
-      } else {
-        // removeCustomEmoji 헬퍼가 없는 경우 config 직접 갱신 fallback
-        const nextCustom = (auth.config.customEmojis || []).filter((item) => item.id !== emojiId)
-        const updated = { ...auth.config, customEmojis: nextCustom }
-        auth.setConfig(updated)
-        await auth.refreshConfig()
-      }
+      const updated = await removeCustomEmoji(auth.client, auth.config, auth.configSha, emojiId)
+      auth.setConfig(updated)
+      await auth.refreshConfig()
       if (selectedEmoji?.id === emojiId) {
         setSelectedEmoji(null)
       }
@@ -103,6 +94,7 @@ export default function CommentForm({ onSubmit }) {
       setDeletingId(null)
     }
   }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!text.trim() && !selectedEmoji) return
@@ -119,9 +111,9 @@ export default function CommentForm({ onSubmit }) {
       setBusy(false)
     }
   }
+
   return (
     <form className="comment-form" onSubmit={handleSubmit} style={{ position: 'relative' }}>
-      {/* 선택된 이모티콘 스티커 미리보기 */}
       {selectedEmoji && (
         <div className="comment-form-preview" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f8fafc', borderRadius: '10px', width: 'fit-content', marginBottom: '6px' }}>
           <img
@@ -129,20 +121,21 @@ export default function CommentForm({ onSubmit }) {
             alt={selectedEmoji.name}
             style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '6px' }}
           />
-          <span style={{ fontSize: '12px', fontWeight: 600 }}>:{selectedEmoji.name}:</span>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>:{selectedEmoji.name}:</span>
           <button type="button" className="remove-preview" onClick={() => setSelectedEmoji(null)} style={{ border: 'none', background: '#e2e8f0', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', fontSize: '10px' }}>
             ✕
           </button>
         </div>
       )}
-      <div className="comment-form-row">
+
+      <div className="comment-form-row" style={{ position: 'relative' }}>
         <input
           type="text"
           placeholder="댓글을 남겨보세요..."
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        {/* 이모티콘 팝오버 열기 버튼 */}
+
         <div ref={wrapRef} style={{ position: 'relative' }}>
           <button
             type="button"
@@ -154,32 +147,14 @@ export default function CommentForm({ onSubmit }) {
           >
             이모티콘
           </button>
-          {/* 통합 이모티콘 선택창 */}
+
+          {/* ★ 모바일에서는 화면 중앙에 시원하게 뜨고 절대 짤리지 않는 이모티콘 팝오버 */}
           {showPicker && (
-            <div
-              className="reaction-picker"
-              style={{
-                position: 'absolute',
-                top: 'auto',
-                bottom: 'calc(100% + 12px)',
-                right: 0,
-                left: 'auto',
-                zIndex: 9999,
-                width: 'min(320px, calc(100vw - 32px))',
-                maxHeight: '420px',
-                overflowY: 'auto',
-                background: '#ffffff',
-                borderRadius: '16px',
-                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.18)',
-                border: '1px solid #e2e8f0',
-                padding: '14px',
-                boxSizing: 'border-box',
-              }}
-            >
+            <div className="reaction-picker">
               {!isAddingNew ? (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink, #2e2c26)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink, #2e2c26)', whiteSpace: 'nowrap' }}>
                       이모티콘 ({customEmojis.length})
                     </div>
                     <button
@@ -194,13 +169,15 @@ export default function CommentForm({ onSubmit }) {
                         fontWeight: 700,
                         padding: '2px 6px',
                         borderRadius: '6px',
+                        whiteSpace: 'nowrap',
                       }}
                       onClick={() => setIsAddingNew(true)}
                     >
                       + 등록
                     </button>
                   </div>
-                  {/* 이모티콘 실시간 검색창 */}
+
+                  {/* 검색창 */}
                   <div style={{ position: 'relative', marginBottom: '10px' }}>
                     <input
                       type="text"
@@ -209,7 +186,7 @@ export default function CommentForm({ onSubmit }) {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       style={{
                         width: '100%',
-                        padding: '7px 28px 7px 10px',
+                        padding: '6px 28px 6px 10px',
                         fontSize: '12px',
                         borderRadius: '8px',
                         border: '1px solid #cbd5e1',
@@ -240,6 +217,7 @@ export default function CommentForm({ onSubmit }) {
                       </button>
                     )}
                   </div>
+
                   {customEmojis.length === 0 ? (
                     <div style={{ fontSize: '12px', color: 'var(--ink-soft, #6b6a60)', margin: '22px 0', textAlign: 'center', lineHeight: 1.6 }}>
                       아직 등록된 이모티콘이 없어요.<br />
@@ -265,7 +243,6 @@ export default function CommentForm({ onSubmit }) {
                           >
                             <img src={e.image} alt={e.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                           </button>
-                          {/* 이모티콘 삭제 버튼: 사용자 지정 색으로 바뀌지 않고, 테두리만 더 빨갛게 강조됨 */}
                           <button
                             type="button"
                             className="reaction-picker-delete"
@@ -279,6 +256,7 @@ export default function CommentForm({ onSubmit }) {
                       ))}
                     </div>
                   )}
+
                   <button
                     type="button"
                     className="reaction-upload-btn btn"
@@ -373,6 +351,7 @@ export default function CommentForm({ onSubmit }) {
             </div>
           )}
         </div>
+
         <button
           className="btn btn-primary"
           type="submit"
@@ -381,6 +360,7 @@ export default function CommentForm({ onSubmit }) {
           {busy ? '올리는 중...' : '등록'}
         </button>
       </div>
+
       {error && <p className="setup-error">{error}</p>}
     </form>
   )

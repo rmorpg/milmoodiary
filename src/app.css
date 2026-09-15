@@ -793,3 +793,195 @@ a { color: var(--accent); }
   background: color-mix(in srgb, var(--card-hover) 20%, var(--surface, #ffffff)) !important;
   color: var(--card-hover) !important;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   [밀무 다이어리] 모바일 화면 밖 짤림 원천 차단 & 크기 최적화 & 스크롤바 숨김
+   ════════════════════════════════════════════════════════════════ */
+
+/* 1. 스크롤바: 데스크탑은 슬림하고 깔끔하게 */
+.modal,
+.reaction-picker,
+.reaction-picker-grid {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+.modal::-webkit-scrollbar,
+.reaction-picker::-webkit-scrollbar,
+.reaction-picker-grid::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.modal::-webkit-scrollbar-thumb,
+.reaction-picker::-webkit-scrollbar-thumb,
+.reaction-picker-grid::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+}
+
+/* 2. 모바일/터치 기기: 스크롤바가 안 움직일 땐 완전히 숨기고, 터치할 때만 네이티브 오버레이로 표시 */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .modal,
+  .reaction-picker,
+  .reaction-picker-grid {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .modal::-webkit-scrollbar,
+  .reaction-picker::-webkit-scrollbar,
+  .reaction-picker-grid::-webkit-scrollbar,
+  .modal *::-webkit-scrollbar,
+  .reaction-picker *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+}
+
+/* 3. 모바일 레이아웃 (640px 이하): 캘린더/카드 일치 및 팝오버 화면 짤림 원천 방지 */
+@media (max-width: 640px) {
+  .sidebar {
+    width: 100% !important;
+    padding: 10px 14px !important;
+    gap: 8px !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+  .sidebar-top {
+    gap: 8px !important;
+  }
+  .logo {
+    font-size: 16px !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+  }
+  .member-nav-name {
+    max-width: 50px !important;
+    font-size: 13px !important;
+  }
+  .sidebar-bottom .btn {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* 메인 영역 정렬 (380px 폭 기준 일치) */
+  .main-area {
+    padding: 14px 12px 32px 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .calendar-page,
+  .calendar-detail,
+  .feed-view,
+  .feed-list {
+    width: 100% !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+  }
+  .calendar {
+    width: 100% !important;
+    max-width: 380px !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
+  }
+  .dual-view {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+  }
+  .dual-column {
+    width: 100% !important;
+  }
+  .entry-card,
+  .empty-slot {
+    width: 100% !important;
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ [이모티콘 & 반응 팝오버 화면 짤림 100% 원천 해결] ★
+     버튼의 relative 좌표에 묶이면 버튼 위치에 따라 좌/우로 삐져나가 잘립니다.
+     모바일에서는 화면 중앙을 기준으로 띄워 좌우 16px 안전 여백을 확보하고,
+     가로 폭을 넉넉하고 큼직하게(최대 350px) 보장하여 잘림과 답답함을 모두 해결합니다.
+     ───────────────────────────────────────────────────────────── */
+
+  /* [A] 댓글창 이모티콘 팝오버: 댓글 입력창 바로 위에 시원하게 중앙 정렬 */
+  .comment-form .reaction-picker {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    bottom: 74px !important; /* 모바일 댓글 폼 바로 위 */
+    top: auto !important;
+    width: calc(100vw - 28px) !important;
+    max-width: 350px !important;
+    min-width: 280px !important;
+    max-height: 55vh !important;
+    overflow-y: auto !important;
+    z-index: 10000 !important;
+    box-sizing: border-box !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* [B] 일기 본문 '+ 반응 추가' 팝오버: 화면 중앙에 큼직한 카드로 정렬 */
+  .reaction-add-wrap .reaction-picker,
+  .reaction-picker:not(.comment-form .reaction-picker) {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 320px !important;
+    min-width: 270px !important;
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+    z-index: 10000 !important;
+    box-sizing: border-box !important;
+    border-radius: 18px !important;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* 설정 모달 */
+  .modal-overlay {
+    padding: 12px !important;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 380px !important;
+    max-height: 88vh !important;
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+  }
+}
+
+/* ── [호버 스타일 보정 유지] ── */
+.btn-ghost:hover,
+.entry-card .btn-ghost:hover,
+.entry-card-actions button:not(.btn-danger):hover,
+.comment-action-btn:not(.delete):hover,
+button.settings-member-remove:not(.btn-danger):hover {
+  background: var(--surface-sunken, #f5f3ef) !important;
+  color: var(--ink, #2e2c26) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.logo,
+.logo:hover,
+button.logo:hover {
+  background: transparent !important;
+  color: var(--ink, #2e2c26) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
