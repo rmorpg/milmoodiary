@@ -15,10 +15,10 @@ export default function Layout({ activeMemberId, onSelectMember, onOpenSettings,
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-top">
-          <button className="logo" onClick={() => onSelectMember(null)} title="캘린더로 돌아가기">
+          {/* ★ title="캘린더로 돌아가기" 툴팁 속성 제거 완료 */}
+          <button className="logo" onClick={() => onSelectMember(null)}>
             {SITE_TITLE}
           </button>
-
           <nav className="member-nav">
             <button
               className={`member-nav-item home-nav-item ${activeMemberId === null ? 'active' : ''}`}
@@ -40,7 +40,6 @@ export default function Layout({ activeMemberId, onSelectMember, onOpenSettings,
                 className={`member-nav-item ${activeMemberId === m.id ? 'active' : ''}`}
                 style={{ '--author-color': m.color }}
                 onClick={() => handleMemberClick(m.id)}
-                title={`${m.displayName}의 글 모아보기`}
               >
                 <Avatar member={m} size={30} />
                 <span className="member-nav-name">{m.displayName}</span>
@@ -49,13 +48,11 @@ export default function Layout({ activeMemberId, onSelectMember, onOpenSettings,
             ))}
           </nav>
         </div>
-
         <div className="sidebar-bottom">
           <button className="btn btn-ghost" onClick={onOpenSettings}>설정</button>
           <button className="btn btn-ghost" onClick={auth.logout}>로그아웃</button>
         </div>
       </aside>
-
       <main className="main-area">{children}</main>
     </div>
   )

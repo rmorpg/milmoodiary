@@ -18,6 +18,9 @@ function Shell() {
     if (auth.currentMember?.color) {
       document.documentElement.style.setProperty('--accent', auth.currentMember.color)
       document.documentElement.style.setProperty('--accent-soft', `${auth.currentMember.color}22`)
+      // 접속자 고유 색상 주입
+      document.documentElement.style.setProperty('--my-color', auth.currentMember.color)
+      document.documentElement.style.setProperty('--hover-color', auth.currentMember.color)
     }
     document.documentElement.style.setProperty('--bg-gradient', auth.currentMember?.bgColor || DEFAULT_BG_GRADIENT)
   }, [auth.currentMember?.color, auth.currentMember?.bgColor])

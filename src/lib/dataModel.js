@@ -1,6 +1,6 @@
 // 저장소 안의 파일 구조:
-//   config.json                  -> { members: [{ id, displayName, color, ..., checklistFields }], customReactions: [...] }
-//                                    (체크리스트 항목은 멤버마다 따로 관리됩니다)
+//   config.json                  -> { members: [{ id, displayName, color, ..., checklistFields }], customReactions: [...], customEmojis: [...] }
+//                                    (모든 참가자가 함께 사용하는 이모티콘 목록이 customEmojis에 저장됩니다)
 //   index.json                   -> { "2026-09-13": ["minji", "yohan"], ... }  (날짜별 작성자 인덱스, 조회 속도용)
 //   entries/YYYY-MM-DD/{id}.json -> 한 사람의 그 날짜 일기
 //   images/YYYY-MM-DD/{id}-xxx   -> 댓글에 첨부된 이미지
@@ -12,16 +12,21 @@ export const REACTIONS = [
   { emoji: '👍', label: '따봉' },
   { emoji: '❤️', label: '하트' },
   { emoji: '🍀', label: '네잎클로버' },
-  { emoji: '🤗', label: '안아주기' },
+  { emoji: '🎉', label: '축하' },
+  { emoji: '💢', label: '짜증' },
+  { emoji: '🐛', label: '벌레' },
   { emoji: '😆', label: '웃김' },
-  { emoji: '😢', label: '토닥토닥' },
+  { emoji: '😢', label: '슬픔' },
+  { emoji: '😘', label: '뽀뽀' },
+  { emoji: '😲', label: '깜짝' },
+  { emoji: '🤗', label: '안아주기' },
+  { emoji: '🤕', label: '아프지 말기' },
 ]
 
 export const DEFAULT_CHECKLIST_FIELDS = [
   { key: 'medication', label: '약', icon: '💊' },
   { key: 'outing', label: '외출/운동', icon: '🚶' },
   { key: 'cleaning', label: '청소', icon: '🧹' },
-  { key: 'delivery', label: '배달 주문', icon: '🛵' },
 ]
 
 export function getChecklistFields(member) {
@@ -59,27 +64,60 @@ export function emptyEntry(date, memberId) {
     },
     reactions: {},
     comments: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  }
+}
+
+export async function initConfig(client, initialMembersOrConfig = []) {
+  let config;
+  if (Array.isArray(initialMembersOrConfig)) {
+    config = {
+      members: initialMembersOrConfig,
+      customReactions: [],
+      customEmojis: [],
+    };
+  } else if (initialMembersOrConfig && typeof initialMembersOrConfig === 'object') {
+    config = {
+      members: initialMembersOrConfig.members || [],
+      customReactions: initialMembersOrConfig.customReactions || [],
+      customEmojis: initialMembersOrConfig.customEmojis || [],
+      ...initialMembersOrConfig,
+    };
+  } else {
+    config = {
+      members: [],
+      customReactions: [],
+      customEmojis: [],
+    };
+  }
+  await client.putJson(CONFIG_PATH, config, { message: '초기 설정(config.json) 생성' });
+  try {
+    await client.putJson(INDEX_PATH, {}, { message: '초기 색인(index.json) 생성' });
+  } catch (e) {
+    // 색인 초기화 실패 시 무시
+  }
+  return config;
+}
+
+export async function initIndex(client) {
+  try {
+    await client.putJson(INDEX_PATH, {}, { message: '색인(index.json) 초기화' });
+  } catch (e) {
+    // 무시
   }
 }
 
 export async function loadConfig(client) {
   const res = await client.getJson(CONFIG_PATH)
-  if (!res) return null
+  if (!res) throw new Error('설정 파일(config.json)을 찾을 수 없어요.')
   return res
 }
 
-export async function initConfig(client, firstMember) {
-  const config = { members: [firstMember] }
-  await client.putJson(CONFIG_PATH, config, { message: '교환 일지 설정 초기화' })
-  await client.putJson(INDEX_PATH, {}, { message: '일지 색인 초기화' })
-  return config
-}
-
-export async function addMember(client, currentConfig, currentSha, newMember) {
-  const updated = { ...currentConfig, members: [...currentConfig.members, newMember] }
-  await client.putJson(CONFIG_PATH, updated, { sha: currentSha, message: `${newMember.displayName} 참여` })
+export async function addMember(client, currentConfig, currentSha, member) {
+  const updated = {
+    ...currentConfig,
+    members: [...currentConfig.members, member],
+  }
+  await client.putJson(CONFIG_PATH, updated, { sha: currentSha, message: `멤버 추가: ${member.displayName}` })
   return updated
 }
 
@@ -119,6 +157,25 @@ export async function removeCustomReaction(client, currentConfig, currentSha, re
   return updated
 }
 
+// ── 커스텀 이모티콘 관리 함수 (참가자 전체 공유) ──
+export async function addCustomEmoji(client, currentConfig, currentSha, emoji) {
+  const updated = {
+    ...currentConfig,
+    customEmojis: [...(currentConfig.customEmojis || []), emoji],
+  }
+  await client.putJson(CONFIG_PATH, updated, { sha: currentSha, message: `이모티콘 추가: ${emoji.name}` })
+  return updated
+}
+
+export async function removeCustomEmoji(client, currentConfig, currentSha, emojiId) {
+  const updated = {
+    ...currentConfig,
+    customEmojis: (currentConfig.customEmojis || []).filter((e) => e.id !== emojiId),
+  }
+  await client.putJson(CONFIG_PATH, updated, { sha: currentSha, message: '이모티콘 삭제' })
+  return updated
+}
+
 export async function addChecklistField(client, currentConfig, currentSha, memberId, field) {
   const member = currentConfig.members.find((m) => m.id === memberId)
   const current = getChecklistFields(member)
@@ -138,7 +195,6 @@ export async function loadIndex(client) {
 }
 
 async function markIndexed(client, date, memberId) {
-  // 낙관적으로 갱신하되, sha 충돌이 나면 한 번 다시 읽어서 재시도합니다.
   for (let attempt = 0; attempt < 3; attempt++) {
     const { json, sha } = await loadIndex(client)
     const authors = new Set(json[date] || [])
@@ -149,7 +205,7 @@ async function markIndexed(client, date, memberId) {
       await client.putJson(INDEX_PATH, updated, { sha, message: `색인 갱신 ${date}` })
       return
     } catch (e) {
-      if (e.status === 409 || e.status === 422) continue // sha 충돌, 재시도
+      if (e.status === 409 || e.status === 422) continue
       throw e
     }
   }
@@ -175,7 +231,7 @@ async function unmarkIndexed(client, date, memberId) {
 export async function getEntry(client, date, memberId) {
   const res = await client.getJson(entryPath(date, memberId))
   if (!res) return null
-  return res // { json, sha }
+  return res
 }
 
 export async function saveEntry(client, date, memberId, entryData, sha) {
@@ -197,7 +253,7 @@ export async function listDatesForMember(client, memberId) {
   const { json } = await loadIndex(client)
   return Object.keys(json)
     .filter((date) => (json[date] || []).includes(memberId))
-    .sort((a, b) => (a < b ? 1 : -1)) // 최신순
+    .sort((a, b) => (a < b ? 1 : -1))
 }
 
 export function toggleReaction(entry, emoji, memberId) {
@@ -211,6 +267,18 @@ export function toggleReaction(entry, emoji, memberId) {
 
 export function withNewComment(entry, comment) {
   return { ...entry, comments: [...(entry.comments || []), comment] }
+}
+
+export function withUpdatedComment(entry, commentId, nextFields) {
+  const comments = (entry.comments || []).map((c) =>
+    c.id === commentId ? { ...c, ...nextFields, updatedAt: new Date().toISOString() } : c
+  )
+  return { ...entry, comments }
+}
+
+export function withDeletedComment(entry, commentId) {
+  const comments = (entry.comments || []).filter((c) => c.id !== commentId)
+  return { ...entry, comments }
 }
 
 export function makeCommentId() {

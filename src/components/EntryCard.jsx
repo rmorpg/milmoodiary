@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
-  deleteEntry, getChecklistFields, imagePath, makeCommentId, saveEntry, toggleReaction, withNewComment,
+  deleteEntry, getChecklistFields, makeCommentId, saveEntry, toggleReaction,
+  withNewComment, withUpdatedComment, withDeletedComment,
 } from '../lib/dataModel.js'
-import { resizeImageFile } from '../lib/image.js'
 import Avatar from './Avatar.jsx'
 import RemoteImage from './RemoteImage.jsx'
 import Lightbox from './Lightbox.jsx'
@@ -39,28 +39,57 @@ export default function EntryCard({ entry: initialEntry, sha: initialSha, date, 
     try {
       await persist(optimistic)
     } catch (e) {
-      setEntry(prev) // 실패하면 되돌리기
+      setEntry(prev)
     } finally {
       setBusy(false)
     }
   }
 
-  async function handleAddComment({ text, imageFile }) {
-    let imgPath = null
-    if (imageFile) {
-      const { base64, extension } = await resizeImageFile(imageFile)
-      imgPath = imagePath(date, auth.currentMember.id, `comment.${extension}`)
-      await auth.client.putBase64File(imgPath, base64, { message: `댓글 이미지 (${date})` })
-    }
+  // ── 이모티콘을 댓글 객체에 담아 저장 ──
+  async function handleAddComment({ text, emoji }) {
     const comment = {
       id: makeCommentId(),
       author: auth.currentMember.id,
       text,
-      image: imgPath,
+      emoji: emoji || null, // { id, name, image }
       createdAt: new Date().toISOString(),
     }
     const nextEntry = withNewComment(entry, comment)
     await persist(nextEntry)
+  }
+
+  // ── 댓글 수정 ──
+  async function handleUpdateComment(commentId, nextFields) {
+    if (busy) return
+    setBusy(true)
+    const prev = entry
+    const nextEntry = withUpdatedComment(entry, commentId, nextFields)
+    setEntry(nextEntry)
+    try {
+      await persist(nextEntry)
+    } catch (e) {
+      setEntry(prev)
+      window.alert('댓글 수정에 실패했어요: ' + (e.message || ''))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── 댓글 삭제 ──
+  async function handleDeleteComment(commentId) {
+    if (busy) return
+    setBusy(true)
+    const prev = entry
+    const nextEntry = withDeletedComment(entry, commentId)
+    setEntry(nextEntry)
+    try {
+      await persist(nextEntry)
+    } catch (e) {
+      setEntry(prev)
+      window.alert('댓글 삭제에 실패했어요: ' + (e.message || ''))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleDelete() {
@@ -80,7 +109,13 @@ export default function EntryCard({ entry: initialEntry, sha: initialSha, date, 
   const images = entry.images || (entry.image ? [entry.image] : [])
 
   return (
-    <article className="entry-card card" style={{ '--author-color': author?.color || 'var(--accent)' }}>
+    <article
+      className="entry-card card"
+      style={{
+        '--author-color': author?.color || 'var(--accent)',
+        overflow: 'visible',
+      }}
+    >
       <header className="entry-card-header">
         <div className="entry-card-who">
           <Avatar member={author} />
@@ -120,7 +155,7 @@ export default function EntryCard({ entry: initialEntry, sha: initialSha, date, 
             {getChecklistFields(author).map((f) => {
               const on = !!entry.checklist?.[f.key]
               return (
-                <span key={f.key} className={`chip checklist-status ${on ? 'on' : 'off'}`}>
+                <span key={f.key} className={'chip checklist-status ' + (on ? 'on' : 'off')}>
                   {f.label}:{on ? 'O' : 'X'}
                 </span>
               )
@@ -153,7 +188,12 @@ export default function EntryCard({ entry: initialEntry, sha: initialSha, date, 
       <ReactionBar entry={entry} onToggle={handleToggleReaction} />
 
       <div className="comment-section">
-        <CommentList comments={entry.comments} />
+        <CommentList
+          comments={entry.comments}
+          onUpdateComment={handleUpdateComment}
+          onDeleteComment={handleDeleteComment}
+          isEntryOwner={isMine}
+        />
         <CommentForm onSubmit={handleAddComment} />
       </div>
 
@@ -164,5 +204,5 @@ export default function EntryCard({ entry: initialEntry, sha: initialSha, date, 
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split('-')
-  return `${y}년 ${Number(m)}월 ${Number(d)}일`
+  return y + '년 ' + Number(m) + '월 ' + Number(d) + '일'
 }

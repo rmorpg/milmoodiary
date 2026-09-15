@@ -1,6 +1,15 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { addMember, addChecklistField, getChecklistFields, removeChecklistField, removeCustomReaction, removeMember, updateMember } from '../lib/dataModel.js'
+import {
+  addMember,
+  addChecklistField,
+  getChecklistFields,
+  removeChecklistField,
+  removeCustomReaction,
+  removeCustomEmoji,
+  removeMember,
+  updateMember,
+} from '../lib/dataModel.js'
 import { DIARY_WORD } from '../config.js'
 import { ColorPicker, BG_PALETTE } from './Setup.jsx'
 import AvatarPicker from './AvatarPicker.jsx'
@@ -29,6 +38,7 @@ export default function SettingsModal({ onClose }) {
   const [removeError, setRemoveError] = useState(null)
 
   const [removingReactionId, setRemovingReactionId] = useState(null)
+  const [removingEmojiId, setRemovingEmojiId] = useState(null)
 
   const [addingField, setAddingField] = useState(false)
   const [newFieldLabel, setNewFieldLabel] = useState('')
@@ -105,6 +115,19 @@ export default function SettingsModal({ onClose }) {
       await auth.refreshConfig()
     } finally {
       setRemovingReactionId(null)
+    }
+  }
+
+  // ── 이모티콘 삭제 핸들러 ──
+  async function handleRemoveCustomEmoji(emoji) {
+    if (!window.confirm(`":${emoji.name}:" 이모티콘을 삭제할까요?`)) return
+    setRemovingEmojiId(emoji.id)
+    try {
+      const updated = await removeCustomEmoji(auth.client, auth.config, auth.configSha, emoji.id)
+      auth.setConfig(updated)
+      await auth.refreshConfig()
+    } finally {
+      setRemovingEmojiId(null)
     }
   }
 
@@ -223,6 +246,31 @@ export default function SettingsModal({ onClose }) {
                 <button type="submit" className="btn btn-primary" disabled={addBusy}>{addBusy ? '추가 중...' : '추가'}</button>
               </div>
             </form>
+          )}
+        </section>
+
+        {/* ── 커스텀 이모티콘 관리 섹션 ── */}
+        <section className="modal-section">
+          <h3>이모티콘 관리</h3>
+          {(auth.config?.customEmojis || []).length === 0 ? (
+            <p className="settings-repo-info">아직 등록된 이모티콘이 없어요. 댓글 입력창의 "이모티콘" 버튼에서 등록할 수 있어요.</p>
+          ) : (
+            <ul className="settings-member-list">
+              {(auth.config?.customEmojis || []).map((e) => (
+                <li key={e.id}>
+                  <img src={e.image} alt={e.name} className="settings-reaction-thumb" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                  <span className="settings-member-name">:{e.name}:</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small btn-danger settings-member-remove"
+                    onClick={() => handleRemoveCustomEmoji(e)}
+                    disabled={removingEmojiId === e.id}
+                  >
+                    {removingEmojiId === e.id ? '삭제 중...' : '삭제'}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
