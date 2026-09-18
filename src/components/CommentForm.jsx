@@ -21,12 +21,22 @@ export default function CommentForm({ onSubmit }) {
 
   const wrapRef = useRef(null)
   const fileInputRef = useRef(null)
+  const textareaRef = useRef(null)
 
   const customEmojis = auth.config?.customEmojis || []
 
   const filteredEmojis = customEmojis.filter((e) =>
     (e.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase())
   )
+
+  // 장문 댓글 입력 시 내용 전체가 보이도록 높이 자동 조절
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      const nextHeight = Math.min(Math.max(textareaRef.current.scrollHeight, 38), 200)
+      textareaRef.current.style.height = `${nextHeight}px`
+    }
+  }, [text])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -105,6 +115,9 @@ export default function CommentForm({ onSubmit }) {
       setText('')
       setSelectedEmoji(null)
       setShowPicker(false)
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '38px'
+      }
     } catch (err) {
       setError(err.message || '댓글을 남기지 못했어요.')
     } finally {
@@ -129,11 +142,36 @@ export default function CommentForm({ onSubmit }) {
       )}
 
       <div className="comment-form-row" style={{ position: 'relative' }}>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
+          rows={1}
           placeholder="댓글을 남겨보세요..."
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault()
+              if (!busy && (text.trim() || selectedEmoji)) {
+                handleSubmit(e)
+              }
+            }
+          }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            resize: 'none',
+            overflowY: 'auto',
+            padding: '8px 12px',
+            fontSize: '13px',
+            lineHeight: 1.5,
+            borderRadius: '10px',
+            border: '1px solid var(--line, #cbd5e1)',
+            background: 'var(--surface, #ffffff)',
+            color: 'var(--ink, #2e2c26)',
+            boxSizing: 'border-box',
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
         />
 
         <div ref={wrapRef} style={{ position: 'relative' }}>
@@ -148,7 +186,7 @@ export default function CommentForm({ onSubmit }) {
             이모티콘
           </button>
 
-          {/* ★ 모바일에서는 화면 중앙에 시원하게 뜨고 절대 짤리지 않는 이모티콘 팝오버 */}
+          {/* ★ 모바일에서는 화면 중앙에 잘리지 않는 이모티콘 팝오버 */}
           {showPicker && (
             <div className="reaction-picker">
               {!isAddingNew ? (
@@ -221,7 +259,7 @@ export default function CommentForm({ onSubmit }) {
                   {customEmojis.length === 0 ? (
                     <div style={{ fontSize: '12px', color: 'var(--ink-soft, #6b6a60)', margin: '22px 0', textAlign: 'center', lineHeight: 1.6 }}>
                       아직 등록된 이모티콘이 없어요.<br />
-                      아래 버튼을 눌러 사진이나 짤을 등록해보세요!
+                      아래 버튼을 눌러 등록해보세요!
                     </div>
                   ) : filteredEmojis.length === 0 ? (
                     <div style={{ fontSize: '12px', color: 'var(--ink-soft, #6b6a60)', margin: '22px 0', textAlign: 'center', lineHeight: 1.6 }}>
@@ -250,7 +288,7 @@ export default function CommentForm({ onSubmit }) {
                             disabled={deletingId === e.id}
                             onClick={(ev) => handleDeleteEmoji(ev, e.id, e.name)}
                           >
-                            {deletingId === e.id ? '…' : '✕'}
+                            {deletingId === e.id ? '...' : '✕'}
                           </button>
                         </div>
                       ))}
@@ -307,13 +345,13 @@ export default function CommentForm({ onSubmit }) {
                         boxSizing: 'border-box',
                       }}
                     >
-                      📁 사진 또는 짤 이미지 선택
+                      📁 이미지 선택
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePickFile} hidden />
                     </label>
                   )}
                   <input
                     type="text"
-                    placeholder="이모티콘 이름 (예: 냥이, 축하)"
+                    placeholder="이모티콘 이름"
                     value={newEmojiName}
                     onChange={(e) => setNewEmojiName(e.target.value)}
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }}

@@ -191,7 +191,7 @@ a { color: var(--accent); }
 }
 .member-nav-item.active,
 .home-nav-item.active {
-  /* 그라데이션 완전 제거: 호버/테두리와 동일하게 사용자 지정색 단색 틴트 적용 */
+  /* 호버/테두리와 동일하게 사용자 지정색 단색 틴트 적용 */
   background: color-mix(in srgb, var(--author-color, var(--current-user-color)) 12%, #ffffff) !important;
   border: 1px solid var(--author-color, var(--current-user-color)) !important;
   color: var(--author-color, var(--current-user-color)) !important;
@@ -449,12 +449,19 @@ a { color: var(--accent); }
 .comment-section { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .comment-empty { font-size: 13px; color: var(--ink-soft); margin: 0; }
 .comment-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.comment-item { display: flex; gap: 8px; align-items: flex-start; }
-.comment-body { flex: 1; }
+.comment-item { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
+.comment-body { flex: 1; min-width: 0; overflow-wrap: break-word; }
 .comment-meta { display: flex; gap: 8px; align-items: baseline; }
 .comment-author { font-size: 13px; font-weight: 700; }
 .comment-time { font-size: 11px; color: var(--ink-soft); }
-.comment-text { margin: 2px 0 0; font-size: 14px; line-height: 1.5; }
+.comment-text {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;       /* 줄바꿈(엔터) 및 띄어쓰기 그대로 보존 */
+  word-break: break-word;       /* 긴 단어/영문 줄바꿈 */
+  overflow-wrap: anywhere;      /* 링크 및 장문 댓글 카드 밖 오버플로우 방지 */
+}
 
 /* 댓글 내 이모티콘/스티커 크기 130×130px 강제 제한 (360px 대형 렌더링 방지) */
 .comment-emoji,
@@ -479,8 +486,9 @@ a { color: var(--accent); }
 .comment-image-btn { border: none; background: none; padding: 0; cursor: zoom-in; display: block; width: fit-content; }
 
 .comment-form { display: flex; flex-direction: column; gap: 8px; }
-.comment-form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.comment-form-row input[type="text"] { flex: 1; min-width: 0; }
+.comment-form-row { display: flex; gap: 8px; align-items: flex-end; width: 100%; box-sizing: border-box; }
+.comment-form-row input[type="text"],
+.comment-form-row textarea { flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; }
 .comment-form-preview { position: relative; width: fit-content; }
 .comment-form-preview img { max-width: 140px; border-radius: var(--radius-md); display: block; }
 
@@ -683,9 +691,7 @@ a { color: var(--accent); }
   gap: 6px;
 }
 .comment-edited-mark {
-  font-size: 11px;
-  color: var(--ink-soft);
-  font-weight: 400;
+  display: none !important; /* 댓글 수정됨 표시 완전히 숨김 삭제 */
 }
 .comment-actions {
   display: flex;
